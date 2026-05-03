@@ -1,23 +1,8 @@
-import sys
-from pathlib import Path
 import pandas as pd
 import pytest
 
-# Add Backend/ to sys.path so core/, data/, utils/ are importable
-_backend_dir = str(Path(__file__).resolve().parent.parent)
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
-
-# Also add project root for data_source.py imports
-_project_root = str(Path(__file__).resolve().parent.parent.parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
-import os
-os.chdir(_backend_dir)  # Ensure cwd is Backend/ for relative imports
-
-from core.saas_simulator import SaaSModelConfig, SaaSSimulator
-from core.station_analytics import StationAnalytics, NetworkAnalytics
+from Backend.core.saas_simulator import SaaSModelConfig, SaaSSimulator
+from Backend.core.station_analytics import StationAnalytics, NetworkAnalytics
 
 
 @pytest.fixture

@@ -1,25 +1,18 @@
 """
 data_source.py  (REFACTORED)
-============================
+===========================
 Backward-compatible public API shim.
 
 All original function names are preserved so that streamlit_app.py and
 dashboard.py continue to work without modification.
 
 Implementation is now delegated to the modular packages:
-  data/       → loading & financial simulation data
-  core/       → analytics classes
-  utils/      → formatting helpers & static data
+  Backend/data/       → loading & financial simulation data
+  Backend/core/       → analytics classes
+  Backend/utils/      → formatting helpers & static data
 """
 
 import logging
-import sys
-import os
-
-# ── Make project sub-packages importable when running from project root ──────
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
 
 import streamlit as st
 import pandas as pd

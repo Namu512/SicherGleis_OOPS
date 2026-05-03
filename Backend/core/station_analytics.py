@@ -51,6 +51,10 @@ class StationAnalytics:
     """Compute analytics for a single station."""
 
     def __init__(self, df: pd.DataFrame, station_name: str) -> None:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError(
+                f"df must be pd.DataFrame, got {type(df).__name__}"
+            )
         self._df           = df
         self._station_name = station_name
         self._station_df   = (
@@ -207,6 +211,10 @@ class NetworkAnalytics:
     """Compute network-wide analytics from the full dataframe."""
 
     def __init__(self, df: pd.DataFrame) -> None:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError(
+                f"df must be pd.DataFrame, got {type(df).__name__}"
+            )
         self._df = df
 
     def get_network_summary(self) -> Dict:

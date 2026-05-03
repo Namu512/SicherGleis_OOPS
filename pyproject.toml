@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sichergleis"
+version = "0.1.0"
+description = "SicherGleis OOPS — Railway Gate Monitoring & SaaS Simulation"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=1.23",
+    "pandas>=2.2",
+    "streamlit>=1.57",
+    "plotly>=5.24",
+    "reportlab>=4.5",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.1",
+    "pytest-asyncio>=1.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["Backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["Backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

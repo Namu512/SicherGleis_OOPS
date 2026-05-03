@@ -70,6 +70,53 @@ class SaaSModelConfig:
     # --- Misc ---
     seed: Optional[int] = 42
 
+    def __post_init__(self):
+        """Validate all configuration parameters."""
+        if self.starting_customers < 0:
+            raise ValueError(
+                f"starting_customers must be >= 0, got {self.starting_customers}"
+            )
+        for field_name in ("monthly_growth_rate", "churn_rate",
+                           "expansion_rate", "contraction_rate"):
+            val = getattr(self, field_name)
+            if not 0 <= val <= 1:
+                raise ValueError(
+                    f"{field_name} must be between 0 and 1, got {val}"
+                )
+        for field_name in ("price_per_customer", "price_basic",
+                           "price_pro", "price_enterprise"):
+            val = getattr(self, field_name)
+            if val <= 0:
+                raise ValueError(
+                    f"{field_name} must be > 0, got {val}"
+                )
+        for field_name in ("fixed_costs", "variable_cost_per_customer",
+                           "cac_simplified"):
+            val = getattr(self, field_name)
+            if val < 0:
+                raise ValueError(
+                    f"{field_name} must be >= 0, got {val}"
+                )
+        total_frac = self.pro_fraction + self.enterprise_fraction
+        if total_frac > 1:
+            raise ValueError(
+                f"pro_fraction + enterprise_fraction must be <= 1, got {total_frac}"
+            )
+        for field_name in ("salary_eng", "salary_sales", "salary_marketing",
+                           "salary_cs", "salary_ga"):
+            val = getattr(self, field_name)
+            if val < 0:
+                raise ValueError(
+                    f"{field_name} must be >= 0, got {val}"
+                )
+        for field_name in ("initial_eng", "initial_sales",
+                           "initial_marketing", "initial_cs", "initial_ga"):
+            val = getattr(self, field_name)
+            if val < 0:
+                raise ValueError(
+                    f"{field_name} must be >= 0, got {val}"
+                )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SIMULATOR

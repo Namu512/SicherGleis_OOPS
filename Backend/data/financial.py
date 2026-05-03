@@ -9,18 +9,14 @@ regardless of whether Python's cwd is the project root or Backend/.
 from __future__ import annotations
 
 import logging
-import os
-import sys
 
 import pandas as pd
 import streamlit as st
 
 logger = logging.getLogger(__name__)
 
-# ── Path fix: ensure Backend/ is on sys.path so `core` is always findable ──
-_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _BACKEND_DIR not in sys.path:
-    sys.path.insert(0, _BACKEND_DIR)
+# ── Import SaaS simulator from the installed package ──
+from Backend.core.saas_simulator import SaaSModelConfig, SaaSSimulator
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -42,8 +38,6 @@ def get_financial_model_data(
     Parameters mirror every kwarg that streamlit_app.py passes at line 5126.
     churn_rate_high defaults to churn_rate * 2 when not supplied.
     """
-    from core.saas_simulator import SaaSModelConfig, SaaSSimulator
-
     if churn_rate_high is None:
         churn_rate_high = churn_rate * 2.0
 
