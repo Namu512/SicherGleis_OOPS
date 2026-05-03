@@ -1,0 +1,194 @@
+"""
+Tests for Backend/core/station_analytics.py
+
+Covers:
+- StationAnalytics: get_metrics, get_psd_analytics, get_maintenance_forecast,
+  get_passenger_heatmap, get_train_schedule, predict_platform_occupancy
+- NetworkAnalytics: get_network_summary, get_incident_log
+- Edge cases: empty DataFrames, missing columns
+"""
+import pytest
+import pandas as pd
+from core.station_analytics import StationAnalytics, NetworkAnalytics
+
+
+# ── StationAnalytics: get_metrics() ───────────────────────────────────────
+
+def test_get_metrics_with_data(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    gates_total, gates_active, people_total, critical_count, avg_sync, warning_count, metrics = analytics.get_metrics()
+    assert gates_total == 2  # 2 rows for München Hbf
+    assert people_total == 800  # 500 + 300
+    assert critical_count == 0  # No CRITICAL in München Hbf rows
+    assert warning_count == 0   # No WARNING in München Hbf rows
+    assert isinstance(metrics, dict)
+    assert "avg_risk" in metrics
+
+
+def test_get_metrics_empty_df(empty_df):
+    analytics = StationAnalytics(empty_df, "Nowhere")
+    gates_total, gates_active, people_total, critical_count, avg_sync, warning_count, metrics = analytics.get_metrics()
+    assert gates_total == 0
+    assert gates_active == 0
+    assert people_total == 0
+    assert critical_count == 0
+    assert avg_sync == 0.0
+    assert warning_count == 0
+    assert metrics == {}
+
+
+def test_get_metrics_missing_columns(empty_df):
+    # DataFrame with only station column
+    df = pd.DataFrame({"station": ["S1", "S1", "S2"]})
+    analytics = StationAnalytics(df, "S1")
+    gates_total, gates_active, people_total, critical_count, avg_sync, warning_count, metrics = analytics.get_metrics()
+    assert gates_total == 2
+    assert people_total == 0  # people column missing
+    assert avg_sync == 0.0  # sync_score missing
+
+
+def test_get_metrics_critical_count(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "Sendlinger Tor")
+    _, _, _, critical_count, _, _, _ = analytics.get_metrics()
+    assert critical_count == 1  # One CRITICAL row
+
+
+def test_get_metrics_warning_count(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "Marienplatz")
+    _, _, _, _, _, warning_count, _ = analytics.get_metrics()
+    assert warning_count == 1  # One WARNING row
+
+
+# ── StationAnalytics: get_psd_analytics() ─────────────────────────────
+
+def test_get_psd_analytics_returns_tuple(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    result = analytics.get_psd_analytics()
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+
+
+def test_get_psd_analytics_dataframe_shapes(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    cycles_df, temp_df = analytics.get_psd_analytics()
+    assert len(cycles_df) == 24  # 24 hours
+    assert len(temp_df) == 24
+    assert "Hour" in cycles_df.columns
+    assert "Door Cycles" in cycles_df.columns
+    assert "Hour" in temp_df.columns
+    assert "Avg Temp (°C)" in temp_df.columns
+
+
+# ── StationAnalytics: get_maintenance_forecast() ──────────────────────
+
+def test_get_maintenance_forecast_shape(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    df = analytics.get_maintenance_forecast()
+    assert len(df) == 14  # 14 days
+    assert "Date" in df.columns
+    assert "Predicted Risk %" in df.columns
+
+
+def test_get_maintenance_forecast_risk_range(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    df = analytics.get_maintenance_forecast()
+    assert (df["Predicted Risk %"] >= 0).all()
+    assert (df["Predicted Risk %"] <= 100).all()
+
+
+# ── StationAnalytics: get_passenger_heatmap() ─────────────────────────
+
+def test_get_passenger_heatmap_shape(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    df = analytics.get_passenger_heatmap()
+    assert df.shape == (7, 12)  # 7 days x 12 hourly slots
+    assert list(df.index[:3]) == ["Mon", "Tue", "Wed"]
+
+
+# ── StationAnalytics: predict_platform_occupancy() ───────────────────
+
+def test_predict_platform_occupancy_with_data(sample_station_df):
+    analytics = StationAnalytics(sample_station_df, "München Hbf")
+    result = analytics.predict_platform_occupancy(time_window_minutes=30)
+    assert isinstance(result, dict)
+    assert "current_occupancy" in result
+    assert "predicted_occupancy" in result
+    assert "capacity" in result
+    assert "utilisation_pct" in result
+    assert "alert_level" in result
+
+
+def test_predict_platform_occupancy_empty_df(empty_df):
+    analytics = StationAnalytics(empty_df, "Nowhere")
+    result = analytics.predict_platform_occupancy()
+    assert result["current_occupancy"] == 500  # default
+    assert "predicted_occupancy" in result
+
+
+# ── NetworkAnalytics: get_network_summary() ───────────────────────────
+
+def test_network_summary_with_data(network_df):
+    net = NetworkAnalytics(network_df)
+    summary = net.get_network_summary()
+    assert isinstance(summary, dict)
+    assert "total_gates" in summary
+    assert "total_stations" in summary
+    assert "total_people" in summary
+    assert "station_summary" in summary
+    assert "status_dist" in summary
+    assert summary["total_gates"] == len(network_df)
+
+
+def test_network_summary_empty_df(empty_df):
+    net = NetworkAnalytics(empty_df)
+    summary = net.get_network_summary()
+    assert summary == {}
+
+
+def test_network_summary_station_count(network_df):
+    net = NetworkAnalytics(network_df)
+    summary = net.get_network_summary()
+    assert summary["total_stations"] == 4  # München Hbf, Marienplatz, Sendlinger Tor, Karlsplatz
+
+
+def test_network_summary_dataframes(network_df):
+    net = NetworkAnalytics(network_df)
+    summary = net.get_network_summary()
+    assert isinstance(summary["station_summary"], pd.DataFrame)
+    assert isinstance(summary["status_dist"], pd.DataFrame)
+    assert isinstance(summary["train_type_dist"], pd.DataFrame)
+    assert isinstance(summary["door_dist"], pd.DataFrame)
+    assert isinstance(summary["operator_stats"], pd.DataFrame)
+
+
+# ── NetworkAnalytics: get_incident_log() ──────────────────────────────
+
+def test_incident_log_with_data(network_df):
+    net = NetworkAnalytics(network_df)
+    df = net.get_incident_log()
+    assert isinstance(df, pd.DataFrame)
+    expected_cols = ["Time", "Severity", "Station", "Description", "Temp (°C)", "Vibration"]
+    for col in expected_cols:
+        assert col in df.columns
+
+
+def test_incident_log_empty_df(empty_df):
+    net = NetworkAnalytics(empty_df)
+    df = net.get_incident_log()
+    assert len(df) == 0
+    assert "Time" in df.columns
+
+
+def test_incident_log_no_maintenance_status(empty_df):
+    df_no_status = pd.DataFrame({"station": ["S1"], "sync_score": [90.0]})
+    net = NetworkAnalytics(df_no_status)
+    result = net.get_incident_log()
+    assert len(result) == 0
+
+
+def test_incident_log_filters_critical_warning(network_df):
+    net = NetworkAnalytics(network_df)
+    df = net.get_incident_log()
+    # Only CRITICAL and WARNING should appear
+    valid_severities = {"CRITICAL", "WARNING"}
+    assert set(df["Severity"].unique()).issubset(valid_severities)
