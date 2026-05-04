@@ -11,19 +11,12 @@ dashboard.py's import surface.
 """
 
 import logging
-import sys
-import os
-
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 
-from core.saas_simulator import SaaSModelConfig, SaaSSimulator# noqa: F401 (re-exported for dashboard.py)
+from Backend.core.saas_simulator import SaaSModelConfig, SaaSSimulator  # noqa: F401 (re-exported for dashboard.py)
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -265,45 +258,46 @@ def visualize_comparison(df_base: pd.DataFrame, df_churn: pd.DataFrame) -> None:
 # SUMMARY PRINT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def print_summary(df: pd.DataFrame, config: SaaSModelConfig) -> None:
-    """Print a concise financial summary to stdout."""
-    print("\n" + "=" * 50)
-    print("FINANCIAL SIMULATION SUMMARY")
-    print("=" * 50)
-    print(f"Assumptions: Start={config.starting_customers}, "
-          f"Growth={config.monthly_growth_rate * 100}%, "
-          f"Churn={config.churn_rate * 100}%")
-    print(f"Price: ${config.price_per_customer}, "
-          f"Fixed Costs: ${config.fixed_costs:,}")
-    print("-" * 50)
+def log_summary(df: pd.DataFrame, config: SaaSModelConfig) -> None:
+    """Log a concise financial summary via the logging module."""
+    logger.info("=" * 50)
+    logger.info("FINANCIAL SIMULATION SUMMARY")
+    logger.info("=" * 50)
+    logger.info(f"Assumptions: Start={config.starting_customers}, "
+                f"Growth={config.monthly_growth_rate * 100}%, "
+                f"Churn={config.churn_rate * 100}%")
+    logger.info(f"Price: ${config.price_per_customer:,.0f}, "
+                f"Fixed Costs: ${config.fixed_costs:,}")
+    logger.info("-" * 50)
 
     breakeven_month = df[df["Cumulative_Cash"] >= 0]["Month"].min()
     if pd.notna(breakeven_month):
-        print(f"[OK]    Break-even Month   : Month {int(breakeven_month)}")
+        logger.info("[OK]    Break-even Month   : Month %d", int(breakeven_month))
     else:
-        print(f"[ERROR] Break-even         : Not reached within {len(df)} months")
+        logger.info("[ERROR] Break-even         : Not reached within %d months", len(df))
 
     final = df.iloc[-1]
-    print(f"[MRR]   Final MRR          : ${final['MRR']:,.0f}")
-    print(f"[ARR]   Final ARR          : ${final['ARR']:,.0f}")
-    print(f"[USERS] Final Customers    : {int(final['Total_Customers'])}")
-    print(f"[CASH]  Final Cum. Cash    : ${final['Cumulative_Cash']:,.0f}")
-    print(f"[MARGIN]Final Gross Margin : {final['Gross_Margin_%']:.1f}%")
-    print(f"[HC]    Final Headcount    : {int(final['Total_Headcount'])}")
-    print(f"[LTV]   LTV/CAC Ratio      : {final['LTV_CAC_Ratio']:.2f}x")
+    logger.info("[MRR]   Final MRR          : $%s", f"{final['MRR']:,.0f}")
+    logger.info("[ARR]   Final ARR          : $%s", f"{final['ARR']:,.0f}")
+    logger.info("[USERS] Final Customers    : %d", int(final['Total_Customers']))
+    logger.info("[CASH]  Final Cum. Cash    : $%s", f"{final['Cumulative_Cash']:,.0f}")
+    logger.info("[MARGIN]Final Gross Margin : %.1f%%", final['Gross_Margin_%'])
+    logger.info("[HC]    Final Headcount    : %d", int(final['Total_Headcount']))
+    logger.info("[LTV]   LTV/CAC Ratio      : %.2fx", final['LTV_CAC_Ratio'])
 
     total_lost   = df["Churned_Customers"].sum()
     total_gained = df["New_Customers"].sum()
-    print(f"[WARN]  Total Churned      : {int(total_lost)} ({(total_lost / total_gained) * 100:.1f}% of gains)")
-    print("=" * 50 + "\n")
+    logger.info("[WARN]  Total Churned      : %d (%.1f%% of gains)",
+                int(total_lost), (total_lost / total_gained) * 100)
+    logger.info("=" * 50)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-
+def main() -> None:
+    """CLI entry point for the SaaS simulation."""
     logger.info("Running Scenario A: Base Case…")
     config_base = SaaSModelConfig(
         starting_customers=50,
@@ -316,7 +310,7 @@ if __name__ == "__main__":
         initial_eng=5, initial_sales=3, initial_marketing=2, initial_cs=2, initial_ga=2,
     )
     df_base = run_simulation(config_base, months=24)
-    print_summary(df_base, config_base)
+    log_summary(df_base, config_base)
     visualize_results(df_base,     title_suffix="(Base Case)")
     visualize_dashboard_1(df_base, title_suffix="(Base Case)")
     visualize_dashboard_2(df_base, title_suffix="(Base Case)")
@@ -335,7 +329,7 @@ if __name__ == "__main__":
         initial_eng=5, initial_sales=3, initial_marketing=2, initial_cs=2, initial_ga=2,
     )
     df_churn = run_simulation(config_high_churn, months=24)
-    print_summary(df_churn, config_high_churn)
+    log_summary(df_churn, config_high_churn)
     visualize_results(df_churn,     title_suffix="(High Churn Scenario)")
     visualize_dashboard_1(df_churn, title_suffix="(High Churn Scenario)")
     visualize_dashboard_2(df_churn, title_suffix="(High Churn Scenario)")
@@ -345,3 +339,7 @@ if __name__ == "__main__":
     logger.info("Generating scenario comparison chart…")
     visualize_comparison(df_base, df_churn)
     logger.info("[DONE] All files generated successfully.")
+
+
+if __name__ == "__main__":
+    main()
